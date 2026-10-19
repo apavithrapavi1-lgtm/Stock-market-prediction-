@@ -10,7 +10,6 @@ days = int(input("Number of previous days (e.g. 5): "))
 
 if days < 1:
     raise ValueError("Enter at least 1 previous day.")
-
 # Download historical stock prices
 data = yf.download(
     symbol,
