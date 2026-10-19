@@ -1,0 +1,71 @@
+import yfinance as yf
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error
+
+# Get user input
+symbol = input("Enter stock symbol (e.g. TCS.NS): ").strip().upper()
+days = int(input("Number of previous days (e.g. 5): "))
+
+if days < 1:
+    raise ValueError("Enter at least 1 previous day.")
+
+# Download historical stock prices
+data = yf.download(
+    symbol,
+    period="5y",
+    auto_adjust=True,
+    progress=False
+)
+
+if data.empty:
+    raise ValueError("No stock data found. Check the symbol.")
+
+prices = data["Close"].dropna().to_numpy(dtype=float)
+
+if prices.ndim > 1:
+    prices = prices[:, 0]
+
+if len(prices) <= days + 30:
+    raise ValueError("Not enough historical data.")
+
+# Prepare previous-day features
+X, y = [], []
+
+for i in range(days, len(prices)):
+    X.append(prices[i-days:i])
+    y.append(prices[i])
+
+X = np.array(X)
+y = np.array(y)
+
+# Train and test chronologically
+split = int(len(X) * 0.8)
+model = LinearRegression()
+model.fit(X[:split], y[:split])
+
+# Evaluate model
+predictions = model.predict(X[split:])
+print("Mean Absolute Error:",
+      round(mean_absolute_error(y[split:], predictions), 2))
+
+# Predict next trading day's closing price
+latest = prices[-days:].reshape(1, -1)
+prediction = model.predict(latest)[0]
+
+print("Stock:", symbol)
+print("Latest closing price:", round(prices[-1], 2))
+print("Predicted next closing price:", round(prediction, 2))
+
+# Save the graph
+plt.figure(figsize=(10, 5))
+plt.plot(prices[-100:], label="Historical prices")
+plt.axhline(prediction, linestyle="--",
+            label="Predicted next close")
+plt.title("Stock Market Prediction")
+plt.xlabel("Recent trading days")
+plt.ylabel("Adjusted closing price")
+plt.legend()
+plt.savefig("stock_prediction.png")
+print("Graph saved as stock_prediction.png")
